@@ -2,6 +2,8 @@
 
 EleBBS protocol replacement from Shurato. Instead of sending tagged files over a transfer protocol, this door copies them into a web directory and shows the caller a download URL.
 
+Distributed under the [Q Public License version 1.0](LICENSE).
+
 It is a standalone console program. It reads `DOOR32.SYS`, talks over the inherited telnet/socket session, and leaves ANSI color codes intact.
 
 ## Downloads
@@ -100,3 +102,9 @@ Omit the username to clean every account under `webfiles`.
 - EleBBS often passes `@C:\NODE\DSZ.CTL`. The `@` is stripped to find the list file on disk.
 - After a successful copy, a DSZ log is written (`dszlog` / `DSZ.LOG`) so `ProcessTransferLog` can credit downloads.
 - The Linux build uses the inherited Door32 file descriptor and does not close the telnet socket. EleBBS still owns the session.
+
+## License
+
+Copyright (C) 2026 Martin Kazmaier.
+
+This software may be distributed under the terms of the Q Public License version 1.0. See [LICENSE](LICENSE) for the full text.
