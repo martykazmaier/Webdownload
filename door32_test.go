@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -687,5 +689,36 @@ func TestCopyReportsProgress(t *testing.T) {
 	last := reports[len(reports)-1]
 	if last.AllDone != int64(len(payload)) || last.AllTotal != int64(len(payload)) {
 		t.Fatalf("last %+v", last)
+	}
+}
+
+func TestRenderScreenKeepsURLOnPage(t *testing.T) {
+	url := "https://shsbbs.net/webfiles/Martin/0123456789abcdef/"
+	files := make([]CopiedFile, 40)
+	for i := range files {
+		files[i] = CopiedFile{Name: fmt.Sprintf("FILE%02d.ZIP", i+1), Size: 1024}
+	}
+	s := string(renderScreen("Martin", url, files, nil))
+	if n := screenLineCount(s); n > screenRows {
+		t.Fatalf("too many lines: %d", n)
+	}
+	if !strings.Contains(s, url) {
+		t.Fatalf("URL missing: %q", s)
+	}
+	if !strings.Contains(s, "more on the web page") {
+		t.Fatalf("expected truncated file list: %q", s)
+	}
+	openAt := strings.LastIndex(s, "Open this URL:")
+	filesAt := strings.Index(s, "Files (40):")
+	if openAt < 0 || filesAt < 0 || openAt < filesAt {
+		t.Fatalf("URL should be below the file list")
+	}
+	errs := []error{errors.New("boom"), errors.New("bang")}
+	s = string(renderScreen("Martin", url, files, errs))
+	if n := screenLineCount(s); n > screenRows {
+		t.Fatalf("with errors too many lines: %d", n)
+	}
+	if !strings.Contains(s, url) {
+		t.Fatalf("URL missing with errors")
 	}
 }

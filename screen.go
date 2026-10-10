@@ -19,9 +19,45 @@ const (
 	ansiHideCursor = "\x1b[?25l"
 	ansiShowCursor = "\x1b[?25h"
 	thermoWidth    = 50
+	screenRows     = 24
+	screenCols     = 76
 )
 
 func renderScreen(user, url string, files []CopiedFile, copyErrs []error) []byte {
+	urlLines := wrapText(url, screenCols)
+	if len(urlLines) == 0 {
+		urlLines = []string{""}
+	}
+	if len(urlLines) > 3 {
+		urlLines = urlLines[:3]
+	}
+
+	// Header, file heading, optional problem, URL block, and Escape prompt
+	// stay on one 80x24 page. Extra files are summarized so the URL cannot
+	// scroll off a terminal with no scrollback.
+	reserved := 3 + 1 + 1 + 1 + len(urlLines) + 1
+	if len(copyErrs) > 0 {
+		reserved++
+	}
+	fileSlots := screenRows - reserved
+	if fileSlots < 1 {
+		fileSlots = 1
+	}
+
+	shown := files
+	hidden := 0
+	if len(files) == 0 {
+		fileSlots = 1
+	} else if len(files) > fileSlots {
+		hidden = len(files) - (fileSlots - 1)
+		if fileSlots <= 1 {
+			shown = nil
+			hidden = len(files)
+		} else {
+			shown = files[:fileSlots-1]
+		}
+	}
+
 	var b strings.Builder
 	b.WriteString(ansiShowCursor)
 	b.WriteString(ansiReset)
@@ -35,37 +71,77 @@ func renderScreen(user, url string, files []CopiedFile, copyErrs []error) []byte
 	b.WriteString("                                       |\r\n")
 	b.WriteString("  +--------------------------------------------------------------+\r\n")
 	b.WriteString(ansiReset)
-	fmt.Fprintf(&b, "  %sUser:%s  %s%s\r\n\r\n", ansiDim, ansiReset, ansiWhite, user)
-	b.WriteString(ansiGreen)
-	b.WriteString("  Your files are ready on the web. Open this URL:\r\n\r\n")
-	b.WriteString(ansiYellow)
-	fmt.Fprintf(&b, "  %s\r\n\r\n", url)
+	fmt.Fprintf(&b, "  %sUser:%s  %s%s\r\n", ansiDim, ansiReset, ansiWhite, fitName(user, 60))
 	b.WriteString(ansiWhite)
-	b.WriteString("  Files:\r\n")
 	if len(files) == 0 {
+		b.WriteString("  Files:\r\n")
 		b.WriteString(ansiRed)
 		b.WriteString("    (none copied)\r\n")
 	} else {
+		fmt.Fprintf(&b, "  Files (%d):\r\n", len(files))
 		b.WriteString(ansiGreen)
-		for _, f := range files {
-			fmt.Fprintf(&b, "    %-32s  %s\r\n", f.Name, formatSize(f.Size))
+		for _, f := range shown {
+			fmt.Fprintf(&b, "    %s  %s\r\n", fitName(f.Name, 44), formatSize(f.Size))
+		}
+		if hidden > 0 {
+			b.WriteString(ansiDim)
+			fmt.Fprintf(&b, "    (and %d more on the web page)\r\n", hidden)
 		}
 	}
 	if len(copyErrs) > 0 {
-		b.WriteString("\r\n")
 		b.WriteString(ansiRed)
-		b.WriteString("  Problems:\r\n")
-		for _, err := range copyErrs {
-			fmt.Fprintf(&b, "    %v\r\n", err)
+		if len(copyErrs) == 1 {
+			fmt.Fprintf(&b, "  Problem: %s\r\n", fitName(copyErrs[0].Error(), 66))
+		} else {
+			fmt.Fprintf(&b, "  Problems: %d files could not be copied.\r\n", len(copyErrs))
 		}
 	}
-	b.WriteString("\r\n")
+	b.WriteString(ansiGreen)
+	b.WriteString("  Open this URL:\r\n")
+	b.WriteString(ansiYellow)
+	for _, ln := range urlLines {
+		fmt.Fprintf(&b, "  %s\r\n", ln)
+	}
 	b.WriteString(ansiCyan)
-	b.WriteString("  Download from the URL above.\r\n")
-	b.WriteString("  Press ESCAPE or Ctrl-X when you are finished downloading.\r\n")
+	b.WriteString("  Press ESCAPE or Ctrl-X when you are finished downloading.")
 	b.WriteString(ansiReset)
-	b.WriteString("\r\n")
 	return []byte(b.String())
+}
+
+func wrapText(s string, width int) []string {
+	s = strings.TrimSpace(s)
+	if width < 1 {
+		return []string{s}
+	}
+	if s == "" {
+		return []string{""}
+	}
+	var lines []string
+	for len(s) > width {
+		lines = append(lines, s[:width])
+		s = s[width:]
+	}
+	if s != "" {
+		lines = append(lines, s)
+	}
+	return lines
+}
+
+func screenLineCount(s string) int {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	n := 0
+	for {
+		i := strings.IndexByte(s, '\n')
+		if i < 0 {
+			if s != "" {
+				n++
+			}
+			return n
+		}
+		n++
+		s = s[i+1:]
+	}
 }
 
 func renderWorking() []byte {
