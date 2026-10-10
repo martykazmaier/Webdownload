@@ -1,0 +1,7 @@
++------------------------------------------+
+|        Web Downloader from Shurato       |
+| Will replace a transfer protocol and copy|
+|files to a web directory, creating a url  |
+|for users to download from.  It can also  |
+|maintain these directories daily.         |
++------------------------------------------+

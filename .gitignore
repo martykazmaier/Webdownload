@@ -1,0 +1,6 @@
+.go-sdk/
+.tools/
+releases/
+webdownload.exe
+webdownload-linux-*
+

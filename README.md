@@ -21,7 +21,7 @@ Binaries are on the [Releases](https://github.com/martykazmaier/Webdownload/rele
 ## What it does
 
 1. Reads `DOOR32.SYS` in the current directory (socket handle, baud, alias, time left).
-2. Copies tagged files into `webdir/webfiles/<user>/<16 hex chars>/`.
+2. Copies tagged files into `webdir/webfiles/<user>/<16 hex chars>/`, with a thermometer bar on the Door32 session.
 3. Writes `index.html` in that folder.
 4. Shows the public URL over the Door32 session.
 5. Waits for **Escape**, **Ctrl-X**, or **Ctrl-C**.
