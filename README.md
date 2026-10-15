@@ -24,7 +24,7 @@ Binaries are on the [Releases](https://github.com/martykazmaier/Webdownload/rele
 2. Copies tagged files into `webdir/webfiles/<user>/<16 hex chars>/`, with a thermometer bar on the Door32 session.
 3. Writes `index.html` in that folder.
 4. Shows the public URL over the Door32 session.
-5. Waits for **Escape**, **Ctrl-X**, or **Ctrl-C**.
+5. Waits for **Escape**, **Ctrl-X**, or **Ctrl-C** (returns to the BBS). Idle or time-left expiry hangs up.
 6. Appends a DSZ-style transfer log so EleBBS can count the downloads.
 
 Public URL:
@@ -101,7 +101,8 @@ Omit the username to clean every account under `webfiles`.
 - The fourth argument follows DSZ: `@DSZ.CTL` is a list; a path without `@` is one file.
 - EleBBS often passes `@C:\NODE\DSZ.CTL`. The `@` is stripped to find the list file on disk.
 - After a successful copy, a DSZ log is written (`dszlog` / `DSZ.LOG`) so `ProcessTransferLog` can credit downloads.
-- The Linux build uses the inherited Door32 file descriptor and does not close the telnet socket. EleBBS still owns the session.
+- The Linux build uses the inherited Door32 file descriptor and does not close the telnet socket on a normal return. EleBBS still owns the session.
+- Idle timeout is `UserTimeOut` from `%RA%\CONFIG.RA` (seconds). Keyboard idle resets on any key. Escape returns to the BBS; idle or time-left expiry hangs up.
 
 ## License
 

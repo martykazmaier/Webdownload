@@ -13,9 +13,14 @@ import (
 // the live telnet session after this door returns.
 type inheritedConn struct {
 	net.Conn
+	fd int
 }
 
 func (inheritedConn) Close() error { return nil }
+
+func (c inheritedConn) Hangup() error {
+	return unix.Shutdown(c.fd, unix.SHUT_RDWR)
+}
 
 func connFromHandle(handle uintptr) (net.Conn, error) {
 	fd := int(handle)
@@ -37,5 +42,5 @@ func connFromHandle(handle uintptr) (net.Conn, error) {
 	if tc, ok := conn.(*net.TCPConn); ok {
 		_ = tc.SetNoDelay(true)
 	}
-	return inheritedConn{Conn: conn}, nil
+	return inheritedConn{Conn: conn, fd: fd}, nil
 }

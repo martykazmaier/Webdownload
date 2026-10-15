@@ -97,22 +97,38 @@ func run(argv []string) int {
 	writeErr := func(msg string) {
 		_, _ = sess.Write([]byte(ansiReset + ansiClear + ansiRed + "  " + msg + "\r\n\r\n" + ansiCyan + "  Press ESCAPE or Ctrl-X to return to the BBS.\r\n" + ansiReset))
 	}
+	disconnect := func(msg string) {
+		_, _ = sess.Write([]byte(ansiReset + ansiClear + ansiRed + "  " + msg + "\r\n" + ansiCyan + "  Goodbye.\r\n" + ansiReset))
+		time.Sleep(150 * time.Millisecond)
+		hangupSession(sess)
+	}
 	pause := func() {
-		var limit time.Duration
+		idle := idleFromConfigRA()
+		var sessionLeft time.Duration
 		if drop != nil {
-			limit = drop.TimeLeft
+			sessionLeft = drop.TimeLeft
+			if sessionLeft <= 0 {
+				fmt.Fprintf(os.Stderr, "webdownload: time expired\n")
+				disconnect("Your time has expired.")
+				return
+			}
 		}
-		fmt.Fprintf(os.Stderr, "webdownload: waiting for ESC\n")
+		fmt.Fprintf(os.Stderr, "webdownload: waiting for ESC (idle %s, time left %s)\n", idle, sessionLeft)
 		for {
-			err := waitEscape(sess, limit)
+			err := waitForExit(sess, sessionLeft, idle)
 			if err == nil {
 				return
 			}
 			fmt.Fprintf(os.Stderr, "webdownload: wait for ESC: %v\n", err)
-			if isDisconnect(err) {
+			if err == errIdleTimeout {
+				disconnect("Idle time expired.")
 				return
 			}
-			if ne, ok := err.(interface{ Timeout() bool }); ok && ne.Timeout() {
+			if err == errTimeExpired {
+				disconnect("Your time has expired.")
+				return
+			}
+			if isDisconnect(err) {
 				return
 			}
 			time.Sleep(50 * time.Millisecond)

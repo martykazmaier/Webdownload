@@ -41,7 +41,7 @@ func (sockAddr) String() string  { return "door32" }
 type winSocket struct {
 	h      windows.Handle
 	mu     sync.Mutex
-	closed bool
+	hungup bool
 }
 
 func connFromHandle(handle uintptr) (net.Conn, error) {
@@ -130,10 +130,19 @@ func (c *winSocket) Write(b []byte) (int, error) {
 }
 
 func (c *winSocket) Close() error {
+	// EleBBS still owns the live session. ESC must not close the socket.
+	return nil
+}
+
+func (c *winSocket) Hangup() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.closed = true
-	return nil
+	if c.hungup {
+		return nil
+	}
+	c.hungup = true
+	_ = windows.Shutdown(c.h, 2) // SD_BOTH
+	return windows.Closesocket(c.h)
 }
 
 func (c *winSocket) LocalAddr() net.Addr  { return sockAddr{} }

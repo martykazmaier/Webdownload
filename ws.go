@@ -135,6 +135,11 @@ func (s *wsSession) Close() error {
 	return s.raw.Close()
 }
 
+func (s *wsSession) Hangup() error {
+	hangupSession(s.raw)
+	return nil
+}
+
 func (s *wsSession) SetReadDeadline(t time.Time) error {
 	return s.ws.SetReadDeadline(t)
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -689,6 +690,113 @@ func TestCopyReportsProgress(t *testing.T) {
 	last := reports[len(reports)-1]
 	if last.AllDone != int64(len(payload)) || last.AllTotal != int64(len(payload)) {
 		t.Fatalf("last %+v", last)
+	}
+}
+
+func TestIdleFromConfigRAData(t *testing.T) {
+	buf := make([]byte, userTimeOutOff+2)
+	binary.LittleEndian.PutUint16(buf[userTimeOutOff:], 900)
+	if got := idleFromConfigRAData(buf); got != 900*time.Second {
+		t.Fatalf("got %s", got)
+	}
+	if idleFromConfigRAData(nil) != 0 {
+		t.Fatal("short buffer")
+	}
+}
+
+func TestIdleFromConfigRAEnv(t *testing.T) {
+	dir := t.TempDir()
+	buf := make([]byte, userTimeOutOff+2)
+	binary.LittleEndian.PutUint16(buf[userTimeOutOff:], 120)
+	if err := os.WriteFile(filepath.Join(dir, "CONFIG.RA"), buf, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RA", dir)
+	t.Setenv("ELEBBS", "")
+	if got := idleFromConfigRA(); got != 120*time.Second {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func TestInspectInputIgnoresTelnetIAC(t *testing.T) {
+	st := 0
+	act, done := inspectInput([]byte{255, 251, 1, 0}, &st)
+	if act || done {
+		t.Fatalf("IAC/NUL counted as activity: act=%v done=%v", act, done)
+	}
+	act, done = inspectInput([]byte("x"), &st)
+	if !act || done {
+		t.Fatalf("key should reset idle: act=%v done=%v", act, done)
+	}
+	act, done = inspectInput([]byte{keyEscape}, &st)
+	if !act || !done {
+		t.Fatalf("escape: act=%v done=%v", act, done)
+	}
+}
+
+func TestWaitTimeExpired(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	errc := make(chan error, 1)
+	go func() {
+		errc <- waitForExit(server, 80*time.Millisecond, 5*time.Second)
+	}()
+	select {
+	case err := <-errc:
+		if err != errTimeExpired {
+			t.Fatalf("got %v want time expired", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("session wait did not expire")
+	}
+}
+
+func TestWaitIdleTimeoutDisconnects(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	errc := make(chan error, 1)
+	go func() {
+		errc <- waitForExit(server, 0, 80*time.Millisecond)
+	}()
+	select {
+	case err := <-errc:
+		if err != errIdleTimeout {
+			t.Fatalf("got %v want idle timeout", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("idle wait did not expire")
+	}
+}
+
+func TestWaitIdleResetsOnKey(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	errc := make(chan error, 1)
+	go func() {
+		errc <- waitForExit(server, 0, 150*time.Millisecond)
+	}()
+	time.Sleep(80 * time.Millisecond)
+	if _, err := client.Write([]byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-errc:
+		t.Fatalf("idle fired too soon: %v", err)
+	case <-time.After(120 * time.Millisecond):
+	}
+	if _, err := client.Write([]byte{keyEscape}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("escape: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not see escape")
 	}
 }
 
