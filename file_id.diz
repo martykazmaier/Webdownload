@@ -1,7 +1,10 @@
-+------------------------------------------+
-|        Web Downloader from Shurato       |
-| Will replace a transfer protocol and copy|
-|files to a web directory, creating a url  |
-|for users to download from.  It can also  |
-|maintain these directories daily.         |
-+------------------------------------------+
+EleBBS web download door
+Copies tagged files to a web directory
+Shows callers a URL for each download
+Maintains per-user download folders
+Writes an index page for downloaded files
+Logs transfers for BBS download counts
+Uses the inherited DOOR32 socket session
+Includes Windows and Linux builds
+Release ZIP includes all platform binaries
+See README for setup and cleanup details
